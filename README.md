@@ -10,9 +10,8 @@ readings.
 - Retains the reading timestamp, source, previous value, and latest delta as
   sensor attributes.
 - Imports all available dated readings into Home Assistant long-term statistics.
-- Replays historical readings to a loaded Home Assistant InfluxDB integration
-  with their original timestamps when the E.ON entities are included by its
-  filter.
+- Writes historical readings directly to a loaded Home Assistant InfluxDB
+  integration with their original timestamps.
 - Follows GraphQL pagination instead of limiting history to the first page.
 - Polls every six hours and rotates the E.ON Next refresh token automatically.
 - Uses the password only during setup or reauthentication; the password is not
@@ -50,10 +49,12 @@ Select the E.ON Next external electricity statistic as a grid-consumption source
 in the Home Assistant Energy dashboard to include the imported history. Gas is
 exposed as the meter's native cumulative volume reading.
 
-For InfluxDB, include the E.ON meter-reading entities in Home Assistant's
-InfluxDB filter. Historical and future points then share the same measurement,
-tags, fields, and entity ID. Replaying history is idempotent because InfluxDB
-uses the measurement, tag set, and timestamp as the point identity.
+When Home Assistant's InfluxDB integration is loaded, the E.ON integration
+writes each historical reading directly with the source timestamp. Do not add
+the E.ON meter-reading sensors to the ordinary InfluxDB entity filter: doing so
+also exports their restored current state at Home Assistant startup and creates
+a synthetic point at the restart time. Replaying history is idempotent because
+InfluxDB uses the measurement, tag set, and timestamp as the point identity.
 
 ## Limitations
 
