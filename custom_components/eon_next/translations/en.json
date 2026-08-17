@@ -1,0 +1,38 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This E.ON Next account is already configured"
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to E.ON Next",
+      "invalid_auth": "Invalid authentication",
+      "invalid_response": "E.ON Next returned an unexpected response",
+      "unknown": "Unexpected error"
+    },
+    "step": {
+      "reauth_confirm": {
+        "data": {
+          "password": "Password"
+        },
+        "description": "Enter the password for {email} to reconnect E.ON Next.",
+        "title": "Reconnect E.ON Next"
+      },
+      "user": {
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        },
+        "description": "Connect your E.ON Next account. The password is used to sign in and is not stored.",
+        "title": "Connect E.ON Next"
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Failed to connect to E.ON Next"
+    },
+    "invalid_response": {
+      "message": "E.ON Next returned an unexpected response"
+    }
+  }
+}
