@@ -14,8 +14,8 @@ readings.
   integration with their original timestamps.
 - Follows GraphQL pagination instead of limiting history to the first page.
 - Polls every six hours and rotates the E.ON Next refresh token automatically.
-- Uses the password only during setup or reauthentication; the password is not
-  stored in Home Assistant.
+- Renews E.ON Next's time-limited refresh session automatically. The password is
+  stored in the Home Assistant config entry and redacted from diagnostics.
 
 Electricity readings are exposed in kWh. Gas readings remain in cubic metres so
 the integration does not guess a calorific value or conversion factor.

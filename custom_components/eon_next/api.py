@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -169,16 +169,24 @@ class EonNextApi:
         self,
         session: aiohttp.ClientSession,
         *,
+        email: str | None = None,
+        password: str | None = None,
         refresh_token: str | None = None,
+        on_auth_updated: Callable[[EonNextAuth], None] | None = None,
     ) -> None:
         self._session = session
+        self._email = email
+        self._password = password
         self._access_token: str | None = None
         self._access_token_expires_at = 0
+        self._on_auth_updated = on_auth_updated
         self.refresh_token = refresh_token
 
     async def async_login(self, email: str, password: str) -> EonNextAuth:
         """Authenticate with account credentials and retain the refresh token."""
         auth = await self._async_obtain_token({"email": email, "password": password})
+        self._email = email
+        self._password = password
         self._store_auth(auth)
         return auth
 
@@ -302,7 +310,12 @@ class EonNextApi:
     async def _async_ensure_authenticated(self) -> None:
         if self._access_token and self._access_token_expires_at > int(time.time()) + 60:
             return
-        await self.async_login_with_refresh_token()
+        try:
+            await self.async_login_with_refresh_token()
+        except EonNextAuthenticationError:
+            if not self._email or not self._password:
+                raise
+            await self.async_login(self._email, self._password)
 
     async def _async_graphql(
         self,
@@ -364,6 +377,8 @@ class EonNextApi:
         self._access_token = auth.access_token
         self._access_token_expires_at = auth.access_token_expires_at
         self.refresh_token = auth.refresh_token
+        if self._on_auth_updated:
+            self._on_auth_updated(auth)
 
 
 def parse_meters(

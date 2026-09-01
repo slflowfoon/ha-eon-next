@@ -69,6 +69,7 @@ class EonNextConfigFlow(ConfigFlow, domain=DOMAIN):
                     title="E.ON Next",
                     data={
                         CONF_EMAIL: email,
+                        CONF_PASSWORD: user_input[CONF_PASSWORD],
                         CONF_REFRESH_TOKEN: refresh_token,
                     },
                 )
@@ -112,6 +113,7 @@ class EonNextConfigFlow(ConfigFlow, domain=DOMAIN):
                     reauth_entry,
                     data={
                         **reauth_entry.data,
+                        CONF_PASSWORD: user_input[CONF_PASSWORD],
                         CONF_REFRESH_TOKEN: refresh_token,
                     },
                 )

@@ -100,6 +100,80 @@ class AuthenticationTests(unittest.IsolatedAsyncioTestCase):
             "JWT short-lived-access",
         )
 
+    async def test_expired_refresh_session_falls_back_to_credentials(self) -> None:
+        """Use stored credentials when E.ON expires the refresh session."""
+        session = FakeSession(
+            [
+                FakeResponse({"errors": [{"message": "Invalid data."}]}),
+                FakeResponse(
+                    {
+                        "data": {
+                            "obtainKrakenToken": {
+                                "payload": {"exp": int(time.time()) + 3600},
+                                "refreshToken": "replacement-refresh",
+                                "token": "replacement-access",
+                            }
+                        }
+                    }
+                ),
+                FakeResponse(
+                    {"data": {"viewer": {"accounts": [{"number": "A-EXAMPLE"}]}}}
+                ),
+            ]
+        )
+        updated_auth = []
+        client = api_module.EonNextApi(
+            session,
+            email="person@example.com",
+            password="unchanged-password",
+            refresh_token="expired-refresh",
+            on_auth_updated=updated_auth.append,
+        )
+
+        accounts = await client.async_get_accounts()
+
+        self.assertEqual(accounts[0].account_number, "A-EXAMPLE")
+        self.assertEqual(
+            session.requests[0]["json"]["variables"]["input"],
+            {"refreshToken": "expired-refresh"},
+        )
+        self.assertEqual(
+            session.requests[1]["json"]["variables"]["input"],
+            {"email": "person@example.com", "password": "unchanged-password"},
+        )
+        self.assertEqual(updated_auth[0].refresh_token, "replacement-refresh")
+        self.assertEqual(client.refresh_token, "replacement-refresh")
+
+    async def test_reports_rotated_token_before_followup_request(self) -> None:
+        """Expose a replacement refresh token as soon as it is issued."""
+        session = FakeSession(
+            [
+                FakeResponse(
+                    {
+                        "data": {
+                            "obtainKrakenToken": {
+                                "payload": {"exp": int(time.time()) + 3600},
+                                "refreshToken": "rotated-refresh",
+                                "token": "short-lived-access",
+                            }
+                        }
+                    }
+                ),
+                FakeResponse({"data": {"viewer": None}}),
+            ]
+        )
+        request_counts = []
+        client = api_module.EonNextApi(
+            session,
+            refresh_token="initial-refresh",
+            on_auth_updated=lambda _auth: request_counts.append(len(session.requests)),
+        )
+
+        with self.assertRaises(api_module.EonNextResponseError):
+            await client.async_get_accounts()
+
+        self.assertEqual(request_counts, [1])
+
 
 class PaginationTests(unittest.IsolatedAsyncioTestCase):
     """Test cursor pagination and response parsing."""

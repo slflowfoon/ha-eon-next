@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 
 from .const import CONF_EMAIL, CONF_REFRESH_TOKEN
@@ -12,6 +13,7 @@ from .coordinator import EonNextConfigEntry
 
 TO_REDACT = {
     CONF_EMAIL,
+    CONF_PASSWORD,
     CONF_REFRESH_TOKEN,
     "account_number",
     "meter_id",

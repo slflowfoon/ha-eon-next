@@ -22,7 +22,7 @@
           "email": "Email",
           "password": "Password"
         },
-        "description": "Connect your E.ON Next account. The password is used to sign in and is not stored.",
+        "description": "Connect your E.ON Next account. The password is stored by Home Assistant so the time-limited E.ON Next session can be renewed automatically.",
         "title": "Connect E.ON Next"
       }
     }
