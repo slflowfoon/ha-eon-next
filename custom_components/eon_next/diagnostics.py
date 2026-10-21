@@ -21,6 +21,10 @@ TO_REDACT = {
     "supply_point_id",
     "title",
     "unique_id",
+    "auth_subject",
+    "auth_store_id",
+    "access_token",
+    "id_token",
 }
 
 

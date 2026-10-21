@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 
@@ -12,9 +12,9 @@ from decimal import Decimal
 class EonNextAuth:
     """Authentication tokens returned by Kraken."""
 
-    access_token: str
+    access_token: str = field(repr=False)
     access_token_expires_at: int
-    refresh_token: str
+    refresh_token: str = field(repr=False)
 
 
 @dataclass(frozen=True, slots=True)

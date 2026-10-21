@@ -11,10 +11,17 @@ from typing import Any
 
 import aiohttp
 
+from .auth import Auth0Session
 from .const import (
     API_URL,
     METER_TYPE_ELECTRICITY,
     METER_TYPE_GAS,
+)
+from .exceptions import (
+    EonNextAuthenticationError,
+    EonNextConnectionError,
+    EonNextError,
+    EonNextResponseError,
 )
 from .models import (
     EonNextAccount,
@@ -23,23 +30,6 @@ from .models import (
     EonNextReading,
     EonNextRegisterReading,
 )
-
-
-class EonNextError(Exception):
-    """Base E.ON Next exception."""
-
-
-class EonNextAuthenticationError(EonNextError):
-    """Raised when E.ON Next rejects authentication."""
-
-
-class EonNextConnectionError(EonNextError):
-    """Raised when E.ON Next cannot be reached."""
-
-
-class EonNextResponseError(EonNextError):
-    """Raised when E.ON Next returns an unexpected response."""
-
 
 AUTH_MUTATION = """
 mutation loginEmailAuthentication($input: ObtainJSONWebTokenInput!) {
@@ -173,8 +163,10 @@ class EonNextApi:
         password: str | None = None,
         refresh_token: str | None = None,
         on_auth_updated: Callable[[EonNextAuth], None] | None = None,
+        auth0: Auth0Session | None = None,
     ) -> None:
         self._session = session
+        self._auth0 = auth0
         self._email = email
         self._password = password
         self._access_token: str | None = None
@@ -308,6 +300,10 @@ class EonNextApi:
         return EonNextAuth(access_token, expires_at, refresh_token)
 
     async def _async_ensure_authenticated(self) -> None:
+        if self._auth0 is not None:
+            auth = await self._auth0.async_get_auth()
+            self._store_auth(auth)
+            return
         if self._access_token and self._access_token_expires_at > int(time.time()) + 60:
             return
         try:
@@ -324,13 +320,16 @@ class EonNextApi:
         variables: dict[str, Any],
         *,
         authenticated: bool = True,
+        _retry_auth: bool = True,
     ) -> dict[str, Any]:
         if authenticated:
             await self._async_ensure_authenticated()
 
         headers = {"Accept": "application/json"}
         if authenticated and self._access_token:
-            headers["Authorization"] = f"JWT {self._access_token}"
+            headers["Authorization"] = (
+                self._access_token if self._auth0 else f"JWT {self._access_token}"
+            )
 
         try:
             async with self._session.post(
@@ -342,14 +341,28 @@ class EonNextApi:
                 },
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=30),
+                allow_redirects=False,
             ) as response:
                 if response.status in (401, 403):
                     raise EonNextAuthenticationError("Authentication was rejected")
-                if response.status >= 400:
+                if response.status == 429 or response.status >= 500:
                     raise EonNextConnectionError(
                         f"E.ON Next returned HTTP {response.status}"
                     )
                 result = await response.json(content_type=None)
+                if 300 <= response.status < 400:
+                    raise EonNextResponseError("Unexpected E.ON redirect")
+                if response.status >= 400:
+                    if not authenticated:
+                        raise EonNextAuthenticationError("Authentication was rejected")
+                    raise EonNextResponseError("E.ON Next rejected the request")
+        except EonNextAuthenticationError:
+            if authenticated and self._auth0 and _retry_auth:
+                self._auth0.invalidate(headers["Authorization"])
+                return await self._async_graphql(
+                    operation, query, variables, _retry_auth=False
+                )
+            raise
         except EonNextError:
             raise
         except (aiohttp.ClientError, TimeoutError) as err:
@@ -369,8 +382,14 @@ class EonNextApi:
                 marker in message.casefold()
                 for marker in ("auth", "credential", "invalid data", "token")
             ):
-                raise EonNextAuthenticationError(message or "Authentication failed")
-            raise EonNextResponseError(message or "E.ON Next GraphQL error")
+                if authenticated and self._auth0 and _retry_auth:
+                    self._auth0.invalidate(headers["Authorization"])
+                    return await self._async_graphql(
+                        operation, query, variables, _retry_auth=False
+                    )
+                raise EonNextAuthenticationError("Authentication was rejected")
+            # GraphQL validation errors can echo credentials or query variables.
+            raise EonNextResponseError("E.ON Next rejected the GraphQL request")
         return result
 
     def _store_auth(self, auth: EonNextAuth) -> None:

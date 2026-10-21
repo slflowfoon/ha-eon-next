@@ -7,7 +7,6 @@ from dataclasses import replace
 from typing import override
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -19,9 +18,10 @@ from .api import (
     EonNextConnectionError,
     EonNextError,
 )
-from .const import CONF_EMAIL, CONF_REFRESH_TOKEN, DEFAULT_UPDATE_INTERVAL, DOMAIN
+from .auth import Auth0Session
+from .const import DEFAULT_UPDATE_INTERVAL, DOMAIN
 from .influx import async_export_historical_readings
-from .models import EonNextAuth, EonNextMeterData
+from .models import EonNextMeterData
 from .statistics import async_import_meter_statistics
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,7 +34,9 @@ class EonNextCoordinator(DataUpdateCoordinator[dict[str, EonNextMeterData]]):
 
     config_entry: EonNextConfigEntry
 
-    def __init__(self, hass: HomeAssistant, config_entry: EonNextConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, config_entry: EonNextConfigEntry, auth: Auth0Session
+    ) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -44,10 +46,7 @@ class EonNextCoordinator(DataUpdateCoordinator[dict[str, EonNextMeterData]]):
         )
         self.api = EonNextApi(
             async_get_clientsession(hass),
-            email=config_entry.data[CONF_EMAIL],
-            password=config_entry.data.get(CONF_PASSWORD),
-            refresh_token=config_entry.data[CONF_REFRESH_TOKEN],
-            on_auth_updated=self._handle_auth_updated,
+            auth0=auth,
         )
         self._influx_export_enabled = False
 
@@ -68,19 +67,6 @@ class EonNextCoordinator(DataUpdateCoordinator[dict[str, EonNextMeterData]]):
     def enable_influx_export(self) -> None:
         """Enable InfluxDB replay after the sensor platform is ready."""
         self._influx_export_enabled = True
-
-    @callback
-    def _handle_auth_updated(self, auth: EonNextAuth) -> None:
-        """Persist replacement tokens before any later API request can fail."""
-        if auth.refresh_token == self.config_entry.data[CONF_REFRESH_TOKEN]:
-            return
-        self.hass.config_entries.async_update_entry(
-            self.config_entry,
-            data={
-                **self.config_entry.data,
-                CONF_REFRESH_TOKEN: auth.refresh_token,
-            },
-        )
 
     @override
     async def _async_update_data(self) -> dict[str, EonNextMeterData]:

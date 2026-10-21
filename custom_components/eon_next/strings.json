@@ -1,29 +1,37 @@
 {
   "config": {
     "abort": {
-      "already_configured": "This E.ON Next account is already configured"
+      "already_configured": "This E.ON Next account is already configured",
+      "reauth_successful": "E.ON Next reconnected",
+      "reconfigure_successful": "E.ON Next reconnected"
     },
     "error": {
-      "cannot_connect": "Failed to connect to E.ON Next",
-      "invalid_auth": "Invalid authentication",
-      "invalid_response": "E.ON Next returned an unexpected response",
-      "unknown": "Unexpected error"
+      "cannot_connect": "Could not reach E.ON Next. Retry without generating another session.",
+      "invalid_auth": "The session is invalid or belongs to a different account. Use the browser-login helper to sign in again.",
+      "invalid_response": "E.ON Next returned an unexpected response or the session could not be saved."
     },
     "step": {
-      "reauth_confirm": {
-        "data": {
-          "password": "Password"
-        },
-        "description": "Enter the password for {email} to reconnect E.ON Next.",
-        "title": "Reconnect E.ON Next"
-      },
       "user": {
         "data": {
-          "email": "Email",
-          "password": "Password"
+          "email": "E.ON Next email",
+          "refresh_token": "Auth0 refresh token"
         },
-        "description": "Connect your E.ON Next account. The password is stored by Home Assistant so the time-limited E.ON Next session can be renewed automatically.",
+        "description": "First run the browser-login helper described in the [setup guide](https://github.com/slflowfoon/ha-eon-next#setup). Sign in on E.ON's page and enter the dedicated refresh token here. Do not use a token from an active phone or browser session. Your E.ON password is not stored.",
         "title": "Connect E.ON Next"
+      },
+      "reauth_confirm": {
+        "data": {
+          "refresh_token": "New Auth0 refresh token"
+        },
+        "description": "Run the browser-login helper for {email} and enter its dedicated refresh token. This reconnects your existing meters without changing their history.",
+        "title": "Reconnect E.ON Next"
+      },
+      "reconfigure": {
+        "data": {
+          "refresh_token": "New Auth0 refresh token"
+        },
+        "description": "Run the browser-login helper for {email} and enter its dedicated refresh token. Existing entities and history are retained.",
+        "title": "Reconnect E.ON Next"
       }
     }
   },
@@ -32,7 +40,7 @@
       "message": "Failed to connect to E.ON Next"
     },
     "invalid_response": {
-      "message": "E.ON Next returned an unexpected response"
+      "message": "E.ON Next returned an unexpected response or session storage failed"
     }
   }
 }
