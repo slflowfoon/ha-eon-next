@@ -14,8 +14,10 @@ readings.
   integration with their original timestamps.
 - Follows GraphQL pagination instead of limiting history to the first page.
 - Polls every six hours and rotates the E.ON Next refresh token automatically.
-- Renews E.ON Next's time-limited refresh session automatically. The password is
-  stored in the Home Assistant config entry and redacted from diagnostics.
+- Uses E.ON's Auth0 browser sign-in and automatic refresh-token rotation, without
+  storing your E.ON password or requiring an account API key.
+- Saves replacement refresh tokens immediately in private, atomic Home Assistant
+  storage and serializes renewal requests.
 
 Electricity readings are exposed in kWh. Gas readings remain in cubic metres so
 the integration does not guess a calorific value or conversion factor.
@@ -35,8 +37,44 @@ Home Assistant configuration, then restart Home Assistant.
 
 ## Setup
 
-Open **Settings > Devices & services > Add integration**, search for **E.ON
-Next**, and enter the email address and password for the account.
+For accounts migrated to E.ON's Auth0 sign-in, the old email/password API login no
+longer works. A one-time browser helper is required because E.ON does not register
+Home Assistant's OAuth callback URL.
+The helper opens E.ON's own sign-in page in a separate temporary browser. It does
+not read your phone's saved credentials or change the phone app.
+
+This uses E.ON's public mobile-client authorization-code/PKCE flow and registered
+Android callback. It is not an officially supported third-party sign-in method;
+E.ON may change or disable it. Successful renewal does not guarantee an unlimited
+session lifetime.
+
+On a desktop computer with Python and [uv](https://docs.astral.sh/uv/), from this
+repository:
+
+```sh
+uv run --with playwright python -m playwright install chromium
+uv run scripts/eon_login.py
+```
+
+Sign in in the browser window. The helper validates the returned identity token
+and writes `eon-next-session.json` with owner-only permissions on POSIX systems.
+On Windows, keep it in your private user directory. Treat it like a password.
+
+Open **Settings > Devices & services > Add integration > E.ON Next** and enter
+the file's `email` and `refresh_token` values. For an existing installation, use
+**Reconfigure** or the **Reconfigure authentication** repair instead of deleting
+the integration. Your entry, meter entities, statistics and exports are retained.
+An existing account must be reconnected with that same account's login.
+
+After Home Assistant accepts the session, delete the helper's output file. Do not
+reuse it: each renewal may replace the refresh token. Never share a refresh token
+with an actively logged-in phone, browser, or another Home Assistant installation.
+Do not post the file in issues or chats.
+
+If E.ON revokes or expires the session, the integration asks you to run the helper
+again. Network errors are retried separately and do not deliberately discard the
+session. The helper needs a graphical desktop; Home Assistant itself does not
+need a browser, ADB, or the helper's dependencies.
 
 The integration creates external statistic IDs in this format:
 

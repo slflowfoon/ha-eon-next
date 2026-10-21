@@ -60,7 +60,7 @@ class FakeSession:
         self.responses = responses
         self.requests: list[dict] = []
 
-    def post(self, url, *, json, headers, timeout):
+    def post(self, url, *, json, headers, timeout, allow_redirects=False):
         self.requests.append({"url": url, "json": json, "headers": headers})
         return self.responses.pop(0)
 
